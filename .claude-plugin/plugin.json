@@ -1,6 +1,6 @@
 {
   "name": "terse",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Enforces concise responses, ultra-minimal code comments, and tight markdown docs. Adaptive verbosity correction plus write-time rejection of noise.",
   "author": {
     "name": "Samuel Hurley",
