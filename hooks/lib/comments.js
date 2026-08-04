@@ -26,7 +26,7 @@ const ALLOW = [
   /\b(Copyright|SPDX|Licensed under|All rights reserved)\b/i,
 ];
 
-const BANNER = /^[\s*]*[-=*_~#+]{4,}|[-=*_~+]{4,}[\s*]*$/;
+const BANNER = /^[\s*]*[-=*_~#+─-╿]{3,}|[-=*_~+─-╿]{3,}[\s*]*$/;
 const STEP = /^(step\s*\d+|first|firstly|second|secondly|third|next|then|now\s+(we|let|create|add|build|call|set)|finally|lastly)\b[\s,:.-]/i;
 const CHANGELOG = /^(new|added|adding|changed|change|updated|update|fixed|fix|removed|remove|renamed|moved|was|previously|note:\s*(i|we)\s|refactored)\b[\s,:.-]|\bwas:\s|\bpreviously\b/i;
 const CEREMONY = /^(constructor|imports?|exports?|getters?|setters?|properties|fields|variables|constants|dependencies|helpers?|helper (function|method)|main (entry|function)|entry point|initialization|init|setup|cleanup|teardown|begin|end|start|done|public methods|private methods|usings?)\s*[.:]?$/i;
@@ -145,7 +145,7 @@ function classify(comment, code, cfg) {
   if (ALLOW.some((re) => re.test(comment.raw))) return null;
   if ((cfg.allowPatterns || []).some((p) => new RegExp(p, 'i').test(comment.raw))) return null;
   if (comment.doc) return cfg.allowDocComments ? null : 'doc-comment';
-  if (BANNER.test(comment.raw) || (BANNER.test(text) && text.replace(/[-=*_~#+\s]/g, '').length < 30)) return 'section-banner';
+  if (BANNER.test(comment.raw) || (BANNER.test(text) && text.replace(/[-=*_~#+─-╿\s]/g, '').length < 30)) return 'section-banner';
   if (STEP.test(text)) return 'step-narration';
   if (CHANGELOG.test(text)) return 'changelog';
   if (CEREMONY.test(text)) return 'ceremony';

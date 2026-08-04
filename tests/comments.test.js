@@ -30,6 +30,16 @@ test('flags section banners', () => {
   assert.deepEqual(rules('a.py', '# ===== helpers =====\nx = 1'), ['section-banner']);
 });
 
+test('flags three-character and box-drawing dividers', () => {
+  assert.deepEqual(rules('a.js', '// --- Response timing ---\nconst t = now();'), ['section-banner']);
+  assert.deepEqual(rules('a.ts', '// ── Pass 4: SQL ──────\nrunPass(4);'), ['section-banner']);
+});
+
+test('does not treat incidental dashes as a banner', () => {
+  assert.deepEqual(rules('a.js', '// a - b - c is the required order\nsort(items);'), []);
+  assert.deepEqual(rules('a.js', '// maps input --> output shape\nconvert(x);'), []);
+});
+
 test('flags step narration', () => {
   assert.deepEqual(rules('a.js', '// Step 1: validate the payload\nvalidate(p);'), ['step-narration']);
   assert.deepEqual(rules('a.js', '// First, connect\nopen();'), ['step-narration']);
