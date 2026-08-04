@@ -20,6 +20,10 @@ constraint, a workaround, a spec reference. Comments that restate the code, narr
 steps, label sections, or describe your edit are rejected at write time by a hook -
 writing them costs you a full retry.
 
+Markdown you write follows the same rule. No filler openers, no "Conclusion" or
+"Key Takeaways" sections, no sentence that restates the heading above it. These are
+rejected at write time too.
+
 Formatting: prose over bullets for short answers. No headers under three paragraphs.
 No tables unless comparing three or more things on two or more axes.
 </TERSE_STYLE_CONTRACT>`;

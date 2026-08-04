@@ -1,6 +1,7 @@
 const fs = require('fs');
-const { load, inScope } = require('./lib/config');
+const { load, inScope, inMarkdownScope } = require('./lib/config');
 const { analyze } = require('./lib/comments');
+const markdown = require('./lib/markdown');
 const { addedLineIndexes, applyEdit } = require('./lib/diff');
 const state = require('./lib/state');
 
@@ -41,17 +42,28 @@ function resolveContent(tool, input) {
   return null;
 }
 
-function render(file, violations) {
-  const lines = violations.slice(0, 8).map((v) => `  L${v.line}  ${v.raw.slice(0, 72)}  → ${v.why}`);
-  const extra = violations.length > 8 ? `\n  …and ${violations.length - 8} more` : '';
-  return [
-    `terse: ${violations.length} comment violation${violations.length === 1 ? '' : 's'} in ${file}`,
-    ...lines,
-    extra,
-    '',
+const GUIDANCE = {
+  code: [
     'Rewrite without these comments, then retry. Keep only comments that explain WHY -',
     'non-obvious constraints, workarounds, spec references. Delete anything that restates',
     'the code, narrates steps, labels sections, or describes the edit.',
+  ],
+  markdown: [
+    'Cut these, then retry. Delete filler openers, sections that only recap, sentences that',
+    'repeat their own heading, and stacked hedging. Lead with the claim and stop there.',
+  ],
+};
+
+function render(file, violations, kind) {
+  const lines = violations.slice(0, 8).map((v) => `  L${v.line}  ${v.raw.slice(0, 72)}  -> ${v.why}`);
+  const extra = violations.length > 8 ? `\n  ...and ${violations.length - 8} more` : '';
+  const noun = kind === 'markdown' ? 'prose' : 'comment';
+  return [
+    `terse: ${violations.length} ${noun} violation${violations.length === 1 ? '' : 's'} in ${file}`,
+    ...lines,
+    extra,
+    '',
+    ...GUIDANCE[kind],
   ].join('\n');
 }
 
@@ -70,7 +82,8 @@ process.stdin.on('end', () => {
   if (!cfg.enabled) emit(null);
 
   const input = payload.tool_input || {};
-  if (!inScope(input.file_path, cfg)) emit(null);
+  const isMarkdown = inMarkdownScope(input.file_path, cfg);
+  if (!isMarkdown && !inScope(input.file_path, cfg)) emit(null);
 
   const resolved = resolveContent(payload.tool_name, input);
   if (!resolved) emit(null);
@@ -79,9 +92,12 @@ process.stdin.on('end', () => {
   const added = addedLineIndexes(resolved.before, resolved.after);
   if (!added.length) emit(null);
 
+  const kind = isMarkdown ? 'markdown' : 'code';
   let result;
   try {
-    result = analyze(resolved.file, added, allLines, cfg);
+    result = isMarkdown
+      ? markdown.analyze(added, allLines)
+      : analyze(resolved.file, added, allLines, cfg);
   } catch {
     emit(null);
   }
@@ -93,9 +109,9 @@ process.stdin.on('end', () => {
 
   if (state.exhausted(payload.session_id, resolved.file)) {
     state.clear(payload.session_id, resolved.file);
-    warn(`${render(resolved.file, result.violations)}\n\n(terse: allowed through after repeated denials - clean these up if they are genuinely noise.)`);
+    warn(`${render(resolved.file, result.violations, kind)}\n\n(terse: allowed through after repeated denials - clean these up if they are genuinely noise.)`);
   }
 
   state.recordDenial(payload.session_id, resolved.file);
-  deny(render(resolved.file, result.violations));
+  deny(render(resolved.file, result.violations, kind));
 });

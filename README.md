@@ -10,6 +10,8 @@ Opus 5 is verbose by default - preambles, recaps, option surveys, and code burie
 
 **Comments.** A `PreToolUse` hook on `Write` and `Edit` inspects the lines the tool is about to add, classifies noise comments, and returns `deny` with the specific lines. Claude rewrites and retries on its own - you are never prompted.
 
+**Docs.** The same hook applies a separate rule family to `.md` files, since markdown has no comments to classify. It catches filler openers, sections that only recap, sentences that add nothing beyond their own heading, and stacked hedging.
+
 ```
 terse: 3 comment violations in src/auth.js
   L12  // increment counter                 → restates the code it sits above
@@ -54,6 +56,19 @@ Requires `node` on `PATH`. No dependencies, no background server.
 | `changelog` | `// NEW: added retry`, `// was: setTimeout(...)` |
 | `ceremony` | `// imports`, `// constructor`, `// helper function` |
 | `density` | more than the cap of added lines are comments |
+
+In markdown:
+
+| rule | example |
+|---|---|
+| `filler` | "It's worth noting that", "In this section, we will", "in order to" |
+| `ceremony-heading` | `## Conclusion`, `## Key Takeaways`, `## Final Thoughts` |
+| `heading-echo` | "Installing the plugin is done like this." under `## Installing the plugin` |
+| `hedge-stack` | "This might possibly be somewhat slower." |
+
+Markdown checks skip fenced code, frontmatter, tables, blockquotes, and link references. `CHANGELOG.md`, `LICENSE.md`, `CODE_OF_CONDUCT.md`, and anything under `.github/` are exempt entirely - changelog and template language is legitimately repetitive. Set `"enforceMarkdown": false` to turn the family off while keeping comment enforcement.
+
+`heading-echo` deliberately fires only when a short sentence adds almost nothing beyond its heading. Reusing the heading's key noun is normal writing; measured across 17.5k lines of real docs the whole markdown family flags 0.23 lines per 1k.
 
 ## What is always allowed
 

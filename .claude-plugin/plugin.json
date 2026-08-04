@@ -1,7 +1,7 @@
 {
   "name": "terse",
   "version": "1.0.0",
-  "description": "Enforces concise responses and ultra-minimal code comments. Adaptive verbosity correction plus write-time rejection of noise comments.",
+  "description": "Enforces concise responses, ultra-minimal code comments, and tight markdown docs. Adaptive verbosity correction plus write-time rejection of noise.",
   "author": {
     "name": "Samuel Hurley",
     "url": "https://github.com/HurleySk"
@@ -13,6 +13,7 @@
     "concise",
     "verbosity",
     "comments",
+    "markdown",
     "style",
     "hooks",
     "claude-code"

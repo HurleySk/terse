@@ -4,9 +4,12 @@ const os = require('os');
 
 const LEVELS = {
   off: { enabled: false },
-  normal: { enabled: true, wordBudget: 250, commentDensity: 0.08, allowDocComments: true },
-  brutal: { enabled: true, wordBudget: 120, commentDensity: 0.03, allowDocComments: false },
+  normal: { enabled: true, wordBudget: 250, commentDensity: 0.08, allowDocComments: true, enforceMarkdown: true },
+  brutal: { enabled: true, wordBudget: 120, commentDensity: 0.03, allowDocComments: false, enforceMarkdown: true },
 };
+
+const MARKDOWN_EXTENSIONS = ['.md', '.mdx', '.markdown'];
+const MARKDOWN_EXEMPT = /(^|[\\/])(CHANGELOG|LICENSE|CODE_OF_CONDUCT|\.github[\\/].*)\.mdx?$/i;
 
 const DEFAULT_EXTENSIONS = [
   '.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx', '.cs', '.java', '.kt', '.scala',
@@ -33,6 +36,7 @@ function load(cwd) {
 
   return {
     extensions: DEFAULT_EXTENSIONS,
+    markdownExtensions: MARKDOWN_EXTENSIONS,
     allowPatterns: [],
     ...base,
     ...merged,
@@ -45,4 +49,10 @@ function inScope(filePath, cfg) {
   return cfg.extensions.includes(path.extname(filePath).toLowerCase());
 }
 
-module.exports = { load, inScope, LEVELS, DEFAULT_EXTENSIONS, SKIP_PATH };
+function inMarkdownScope(filePath, cfg) {
+  if (!filePath || !cfg.enforceMarkdown || SKIP_PATH.test(filePath)) return false;
+  if (MARKDOWN_EXEMPT.test(filePath)) return false;
+  return cfg.markdownExtensions.includes(path.extname(filePath).toLowerCase());
+}
+
+module.exports = { load, inScope, inMarkdownScope, LEVELS, DEFAULT_EXTENSIONS, MARKDOWN_EXTENSIONS, SKIP_PATH };
