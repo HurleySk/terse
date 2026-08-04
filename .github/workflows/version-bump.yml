@@ -42,7 +42,7 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
             IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
             NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-            echo "Release requested — bumping: $CURRENT -> $NEW_VERSION"
+            echo "Release requested - bumping: $CURRENT -> $NEW_VERSION"
             jq --arg v "$NEW_VERSION" '.version = $v' .claude-plugin/plugin.json > tmp.json
             mv tmp.json .claude-plugin/plugin.json
             jq --arg v "$NEW_VERSION" '.version = $v' package.json > tmp.json
@@ -50,7 +50,7 @@ jobs:
             echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
             echo "bumped=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No release tag — syncing current version: $CURRENT"
+            echo "No release tag - syncing current version: $CURRENT"
             echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
             echo "bumped=false" >> "$GITHUB_OUTPUT"
             echo "release=false" >> "$GITHUB_OUTPUT"

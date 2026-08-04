@@ -2,13 +2,13 @@
 
 A Claude Code plugin that enforces concise responses and ultra-minimal code comments.
 
-Opus 5 is verbose by default — preambles, recaps, option surveys, and code buried in comments that restate the line below them. Instructions in `CLAUDE.md` help for a while, then drift out of attention on a long session. `terse` applies pressure that does not drift.
+Opus 5 is verbose by default - preambles, recaps, option surveys, and code buried in comments that restate the line below them. Instructions in `CLAUDE.md` help for a while, then drift out of attention on a long session. `terse` applies pressure that does not drift.
 
 ## What it does
 
 **Prose.** A style contract is injected at session start. After that, a `UserPromptSubmit` hook reads the transcript, measures the prose in your last response, and injects a correction *only when it exceeded budget*. Word counts exclude fenced and inline code, so writing a large file is not treated as rambling. When Claude is already concise, the hook emits nothing and costs nothing.
 
-**Comments.** A `PreToolUse` hook on `Write` and `Edit` inspects the lines the tool is about to add, classifies noise comments, and returns `deny` with the specific lines. Claude rewrites and retries on its own — you are never prompted.
+**Comments.** A `PreToolUse` hook on `Write` and `Edit` inspects the lines the tool is about to add, classifies noise comments, and returns `deny` with the specific lines. Claude rewrites and retries on its own - you are never prompted.
 
 ```
 terse: 3 comment violations in src/auth.js
@@ -16,7 +16,7 @@ terse: 3 comment violations in src/auth.js
   L19  // ---------- Setup ----------       → decorative section banner
   L31  // NEW: added retry handling         → describes the edit, not the code
 
-Rewrite without these comments, then retry. Keep only comments that explain WHY —
+Rewrite without these comments, then retry. Keep only comments that explain WHY -
 non-obvious constraints, workarounds, spec references.
 ```
 
@@ -40,7 +40,7 @@ Requires `node` on `PATH`. No dependencies, no background server.
 
 | level | word budget | comment density cap | doc comments |
 |---|---|---|---|
-| `off` | — | — | hooks disabled |
+| `off` | - | - | hooks disabled |
 | `normal` *(default)* | 250 | 8% | allowed |
 | `brutal` | 120 | 3% | rejected |
 
@@ -62,7 +62,7 @@ Comments that carry information the code cannot:
 - Anything containing **why**, **because**, **otherwise**, **workaround**, **caveat**, **race**, **deadlock**, or a spec/RFC reference
 - `TODO`, `FIXME`, `HACK`, `XXX`, `SAFETY`, `SECURITY`, `PERF`
 - URLs and issue references (`#1234`, `ABC-123`)
-- Tool directives — `eslint-disable`, `@ts-expect-error`, `noqa`, `pylint:`, `#pragma`, `#region`, `SuppressMessage`
+- Tool directives - `eslint-disable`, `@ts-expect-error`, `noqa`, `pylint:`, `#pragma`, `#region`, `SuppressMessage`
 - Shebangs, copyright and SPDX headers
 - Doc comments (`///`, `/** */`, `"""`, `<summary>`) unless the level is `brutal`
 
@@ -91,13 +91,13 @@ Two design choices keep this from becoming an obstacle:
 
 ## Scope
 
-Comment enforcement covers C-style (`//`, `/* */`), hash (`#`), and dash (`--`) comment syntaxes — JavaScript, TypeScript, C#, Java, Kotlin, Go, Rust, Swift, Dart, C/C++, PHP, Python, Ruby, Perl, R, Julia, shell, PowerShell, SQL, and Lua. Markdown, JSON, and YAML are never touched.
+Comment enforcement covers C-style (`//`, `/* */`), hash (`#`), and dash (`--`) comment syntaxes - JavaScript, TypeScript, C#, Java, Kotlin, Go, Rust, Swift, Dart, C/C++, PHP, Python, Ruby, Perl, R, Julia, shell, PowerShell, SQL, and Lua. Markdown, JSON, and YAML are never touched.
 
 ## Design notes
 
 There is deliberately no background server. Each hook is one short-lived Node process, a few tens of milliseconds per write. A plugin whose entire thesis is minimalism should not ship a daemon.
 
-There is also deliberately no `Stop` hook. Blocking on `Stop` makes Claude *continue generating* — precisely the wrong outcome for a verbosity tool. The prose half therefore works by context injection alone.
+There is also deliberately no `Stop` hook. Blocking on `Stop` makes Claude *continue generating* - precisely the wrong outcome for a verbosity tool. The prose half therefore works by context injection alone.
 
 ## Development
 
@@ -107,7 +107,7 @@ npm test          # node --test tests/*.test.js
 
 Zero runtime and dev dependencies. Tests drive every hook end-to-end through real stdin payloads.
 
-Cutting a release — commit with `[release]` in the message; CI bumps the patch version, tags it, and notifies the marketplace.
+Cutting a release - commit with `[release]` in the message; CI bumps the patch version, tags it, and notifies the marketplace.
 
 ## Licence
 

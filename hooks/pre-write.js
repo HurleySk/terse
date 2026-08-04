@@ -49,7 +49,7 @@ function render(file, violations) {
     ...lines,
     extra,
     '',
-    'Rewrite without these comments, then retry. Keep only comments that explain WHY —',
+    'Rewrite without these comments, then retry. Keep only comments that explain WHY -',
     'non-obvious constraints, workarounds, spec references. Delete anything that restates',
     'the code, narrates steps, labels sections, or describes the edit.',
   ].join('\n');
@@ -93,7 +93,7 @@ process.stdin.on('end', () => {
 
   if (state.exhausted(payload.session_id, resolved.file)) {
     state.clear(payload.session_id, resolved.file);
-    warn(`${render(resolved.file, result.violations)}\n\n(terse: allowed through after repeated denials — clean these up if they are genuinely noise.)`);
+    warn(`${render(resolved.file, result.violations)}\n\n(terse: allowed through after repeated denials - clean these up if they are genuinely noise.)`);
   }
 
   state.recordDenial(payload.session_id, resolved.file);

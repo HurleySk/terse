@@ -8,7 +8,7 @@ Argument: `$ARGUMENTS`
 
 Config resolution: `.claude/terse.json` in the project overrides `~/.claude/terse.json`.
 
-## No argument — report status
+## No argument - report status
 
 Read `.claude/terse.json` (project), falling back to `~/.claude/terse.json`, falling back to the default `level: "normal"`. Report in two lines: the active level, and the three numbers that follow from it (word budget, comment density cap, doc comments allowed).
 
@@ -16,17 +16,17 @@ Level presets:
 
 | level | wordBudget | commentDensity | allowDocComments |
 |---|---|---|---|
-| `off` | — | — | hooks disabled entirely |
+| `off` | - | - | hooks disabled entirely |
 | `normal` | 250 | 0.08 | true |
 | `brutal` | 120 | 0.03 | false |
 
-## `off` / `normal` / `brutal` — set the level
+## `off` / `normal` / `brutal` - set the level
 
 Write `{ "level": "<value>" }` into `.claude/terse.json` in the current project, preserving any other keys already present in that file. Create the file and `.claude/` directory if absent. Confirm in one line.
 
-Note that `off` disables all three hooks — the style contract, the adaptive nudge, and comment enforcement.
+Note that `off` disables all three hooks - the style contract, the adaptive nudge, and comment enforcement.
 
-## `stats` — verbosity trend
+## `stats` - verbosity trend
 
 Run:
 
