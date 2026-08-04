@@ -81,5 +81,5 @@ jobs:
           curl -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.MARKETPLACE_PAT }}" \
-            https://api.github.com/repos/HurleySk/claude-plugins-marketplace/dispatches \
+            https://api.github.com/repos/HurleySk/hurleysk-marketplace/dispatches \
             -d "{\"event_type\":\"plugin-version-update\",\"client_payload\":{\"plugin_name\":\"${{ needs.sync.outputs.plugin_name }}\",\"version\":\"${{ needs.sync.outputs.version }}\"}}"

@@ -23,7 +23,7 @@ non-obvious constraints, workarounds, spec references.
 ## Install
 
 ```
-/plugin marketplace add HurleySk/claude-plugins-marketplace
+/plugin marketplace add HurleySk/hurleysk-marketplace
 /plugin install terse@hurleysk-marketplace
 ```
 
