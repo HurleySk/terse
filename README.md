@@ -14,12 +14,13 @@ Opus 5 is verbose by default - preambles, recaps, option surveys, and code burie
 
 ```
 terse: 3 comment violations in src/auth.js
-  L12  // increment counter                 → restates the code it sits above
-  L19  // ---------- Setup ----------       → decorative section banner
-  L31  // NEW: added retry handling         → describes the edit, not the code
+  L12  // increment counter                 -> restates the code it sits above
+  L19  // ---------- Setup ----------       -> decorative section banner
+  L31  // NEW: added retry handling         -> describes the edit, not the code
 
-Rewrite without these comments, then retry. Keep only comments that explain WHY -
-non-obvious constraints, workarounds, spec references.
+Delete these comments, then retry. Only four kinds survive: tool directives that
+change behaviour (eslint-disable, @ts-expect-error, noqa, #pragma), shebangs, licence
+headers, and TODO/FIXME markers or bare URL and issue references.
 ```
 
 ## Install
@@ -40,11 +41,13 @@ Requires `node` on `PATH`. No dependencies, no background server.
 /terse stats      # word count of the last 10 turns
 ```
 
-| level | word budget | comment density cap | doc comments |
-|---|---|---|---|
-| `off` | - | - | hooks disabled |
-| `normal` *(default)* | 250 | 8% | allowed |
-| `brutal` | 120 | 3% | rejected |
+| level | word budget | comment density cap | doc comments | markdown rules |
+|---|---|---|---|---|
+| `off` | - | - | hooks disabled | off |
+| `normal` *(default)* | 250 | 8% | allowed | on |
+| `brutal` | 120 | 3% | rejected | on |
+
+A project's `.claude/terse.json` wins over `~/.claude/terse.json`. A number you tuned in the user file is carried forward only while the effective level is still the level that file chose, so `/terse brutal` in one project applies brutal fully rather than inheriting your global `normal` numbers.
 
 ## What gets rejected
 
@@ -72,20 +75,23 @@ Markdown checks skip fenced code, frontmatter, tables, blockquotes, and link ref
 
 ## What is always allowed
 
-Comments that carry information the code cannot:
+Only comments that do something, or that carry a reference the code cannot:
 
-- Anything containing **why**, **because**, **otherwise**, **workaround**, **caveat**, **race**, **deadlock**, or a spec/RFC reference
+- Tool directives that change behaviour - `eslint-disable`, `@ts-expect-error`, `noqa`, `pylint:`, `#pragma`, `#region`, `SuppressMessage`
+- Shebangs, copyright and SPDX headers
 - `TODO`, `FIXME`, `HACK`, `XXX`, `SAFETY`, `SECURITY`, `PERF`
 - URLs and issue references (`#1234`, `ABC-123`)
-- Tool directives - `eslint-disable`, `@ts-expect-error`, `noqa`, `pylint:`, `#pragma`, `#region`, `SuppressMessage`
-- Shebangs, copyright and SPDX headers
 - Doc comments (`///`, `/** */`, `"""`, `<summary>`) unless the level is `brutal`
+
+**"Explaining why" is deliberately not on that list.** An earlier version allowed any comment containing *why*, *because*, *workaround*, *caveat*, and friends. That is a keyword match, not a semantic one: writing "because" bought a comment unlimited exemption, including from the density cap. Since almost every comment gestures at intent, it exempted almost everything and made the plugin trivial to defeat by accident. If a line needs a paragraph to justify it, rename it or restructure it.
+
+The `density` rule is what catches the remaining case - a block of genuine-sounding prose where no single line matches a rule. It counts every comment you add, allow-listed or not, against the lines you add.
 
 Two design choices keep this from becoming an obstacle:
 
-**Only added lines are judged.** For an `Edit`, the hook reconstructs the resulting file and diffs it against what is on disk. Editing a legacy file thick with old comments will never be blocked over comments you did not write.
+**Only added lines are judged.** The hook reconstructs the resulting file and runs an LCS diff against what is on disk, so a line is judged only if it is genuinely new. A trimmed-multiset diff is not enough here: when a new comment duplicates one that already appears later in the file, the multiset consumes the wrong occurrence and blames the pre-existing line. Editing a legacy file thick with old comments will never be blocked over comments you did not write.
 
-**The loop breaker.** If the same file is denied twice in a row, the third attempt is allowed through with a warning instead. A misfiring classifier costs you one wasted retry, never a deadlock.
+**The loop breaker.** If the same file is denied twice in a row, the third attempt is allowed through with a warning instead. A misfiring classifier costs you one wasted retry, never a deadlock. The counter lives in `~/.claude/terse-denials.json`, falling back to the temp directory, and is written atomically. If neither location is writable the hook degrades to warning instead of blocking, since a denial it cannot count is a denial it cannot stop.
 
 ## Configuration
 
@@ -106,7 +112,7 @@ Two design choices keep this from becoming an obstacle:
 
 ## Scope
 
-Comment enforcement covers C-style (`//`, `/* */`), hash (`#`), and dash (`--`) comment syntaxes - JavaScript, TypeScript, C#, Java, Kotlin, Go, Rust, Swift, Dart, C/C++, PHP, Python, Ruby, Perl, R, Julia, shell, PowerShell, SQL, and Lua. Markdown, JSON, and YAML are never touched.
+Comment enforcement covers C-style (`//`, `/* */`), hash (`#`), and dash (`--`) comment syntaxes - JavaScript, TypeScript, C#, Java, Kotlin, Go, Rust, Swift, Dart, C/C++, PHP, Python, Ruby, Perl, R, Julia, shell, PowerShell, SQL, and Lua. Python triple-quoted docstrings are treated as doc comments, so `brutal` rejects them and `normal` does not. Markdown is handled by the separate rule family above; JSON, YAML, and everything else are never touched.
 
 ## Design notes
 

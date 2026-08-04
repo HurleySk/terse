@@ -1,8 +1,27 @@
 const fs = require('fs');
 
+const MAX_BYTES = 8 * 1024 * 1024;
+
+const BOOKKEEPING = /^<(command-name|command-message|command-args|local-command-stdout|local-command-stderr|local-command-caveat|task-notification|system-reminder|user-prompt-submit-hook|bash-input|bash-stdout|bash-stderr)>/;
+
+function readTail(file) {
+  const { size } = fs.statSync(file);
+  if (size <= MAX_BYTES) return fs.readFileSync(file, 'utf8');
+  const fd = fs.openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(MAX_BYTES);
+    fs.readSync(fd, buf, 0, MAX_BYTES, size - MAX_BYTES);
+    const text = buf.toString('utf8');
+    const nl = text.indexOf('\n');
+    return nl === -1 ? '' : text.slice(nl + 1);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function parseLines(file) {
   const out = [];
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+  for (const line of readTail(file).split('\n')) {
     if (!line.trim()) continue;
     try {
       out.push(JSON.parse(line));
@@ -11,19 +30,25 @@ function parseLines(file) {
   return out;
 }
 
-function isRealUserTurn(entry) {
-  if (entry.type !== 'user' || entry.isSidechain) return false;
-  const content = entry.message?.content;
-  if (typeof content === 'string') return true;
-  if (!Array.isArray(content)) return false;
-  return content.some((c) => c.type === 'text');
-}
-
 function textOf(entry) {
   const content = entry.message?.content;
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
   return content.filter((c) => c.type === 'text').map((c) => c.text || '').join('\n');
+}
+
+function isRealUserTurn(entry) {
+  if (entry.type !== 'user' || entry.isSidechain || entry.isMeta) return false;
+  const content = entry.message?.content;
+  if (typeof content !== 'string' && !Array.isArray(content)) return false;
+  if (Array.isArray(content) && !content.some((c) => c.type === 'text')) return false;
+  const text = textOf(entry).trim();
+  if (!text) return false;
+  return !BOOKKEEPING.test(text);
+}
+
+function isAssistantText(entry) {
+  return entry.type === 'assistant' && !entry.isSidechain;
 }
 
 function countWords(text) {
@@ -34,27 +59,29 @@ function countWords(text) {
   return words.length;
 }
 
-function lastTurn(file) {
-  let entries;
+function entriesOf(file) {
   try {
-    entries = parseLines(file);
+    return parseLines(file);
   } catch {
     return null;
   }
+}
 
-  let start = -1;
-  for (let i = entries.length - 1; i >= 0; i--) {
-    if (isRealUserTurn(entries[i])) { start = i; break; }
-  }
-  if (start === -1) return null;
+function lastTurn(file) {
+  const entries = entriesOf(file);
+  if (!entries) return null;
 
   const parts = [];
-  for (let i = start + 1; i < entries.length; i++) {
+  let skippedPending = false;
+  for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
-    if (isRealUserTurn(e)) break;
-    if (e.type === 'assistant' && !e.isSidechain) {
+    if (isRealUserTurn(e)) {
+      if (!parts.length && !skippedPending) { skippedPending = true; continue; }
+      break;
+    }
+    if (isAssistantText(e)) {
       const t = textOf(e);
-      if (t.trim()) parts.push(t);
+      if (t.trim()) parts.unshift(t);
     }
   }
   if (!parts.length) return null;
@@ -64,12 +91,8 @@ function lastTurn(file) {
 }
 
 function recentTurns(file, limit = 10) {
-  let entries;
-  try {
-    entries = parseLines(file);
-  } catch {
-    return [];
-  }
+  const entries = entriesOf(file);
+  if (!entries) return [];
 
   const turns = [];
   let parts = [];
@@ -79,7 +102,7 @@ function recentTurns(file, limit = 10) {
       parts = [];
       continue;
     }
-    if (e.type === 'assistant' && !e.isSidechain) {
+    if (isAssistantText(e)) {
       const t = textOf(e);
       if (t.trim()) parts.push(t);
     }
@@ -88,4 +111,4 @@ function recentTurns(file, limit = 10) {
   return turns.slice(-limit);
 }
 
-module.exports = { lastTurn, recentTurns, countWords, textOf, isRealUserTurn };
+module.exports = { lastTurn, recentTurns, countWords, textOf, isRealUserTurn, BOOKKEEPING };

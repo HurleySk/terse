@@ -15,6 +15,50 @@ const user = (text) => ({ type: 'user', isSidechain: false, message: { content: 
 const bot = (text, sidechain = false) => ({ type: 'assistant', isSidechain: sidechain, message: { content: [{ type: 'text', text }] } });
 const toolResult = () => ({ type: 'user', isSidechain: false, message: { content: [{ type: 'tool_result', content: 'ok' }] } });
 
+const strUser = (text, extra = {}) => ({ type: 'user', isSidechain: false, message: { content: text }, ...extra });
+
+test('slash-command bookkeeping does not reset the turn boundary', () => {
+  const f = fixture([
+    strUser('write the plugin'),
+    bot('one two three four five six'),
+    strUser('Base directory for this skill: C:/x', { isMeta: true }),
+    strUser('<command-name>/compact</command-name>'),
+    strUser('<local-command-stdout>Compacted</local-command-stdout>'),
+    strUser('<task-notification>agent finished</task-notification>'),
+  ]);
+  assert.equal(lastTurn(f).words, 6);
+});
+
+test('a prompt already persisted before the hook runs is skipped', () => {
+  const f = fixture([
+    strUser('first'),
+    bot('one two three'),
+    strUser('second prompt, already on disk'),
+  ]);
+  assert.equal(lastTurn(f).words, 3);
+});
+
+test('non-message entry types are ignored', () => {
+  const f = fixture([
+    { type: 'last-prompt', value: 'x' },
+    strUser('go'),
+    { type: 'attachment', hookEvent: 'UserPromptSubmit' },
+    bot('one two'),
+    { type: 'file-history-snapshot' },
+  ]);
+  assert.equal(lastTurn(f).words, 2);
+});
+
+test('recentTurns counts one turn per genuine prompt', () => {
+  const f = fixture([
+    strUser('a'), bot('one two'),
+    strUser('<command-name>/compact</command-name>'),
+    bot('three four five'),
+    strUser('b'), bot('six'),
+  ]);
+  assert.deepEqual(recentTurns(f, 10), [5, 1]);
+});
+
 test('sums every text block in the last assistant turn', () => {
   const f = fixture([user('hi'), bot('one two three'), toolResult(), bot('four five')]);
   assert.equal(lastTurn(f).words, 5);

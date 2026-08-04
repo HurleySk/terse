@@ -31,28 +31,35 @@ function readJson(file) {
 function load(cwd) {
   const user = readJson(path.join(os.homedir(), '.claude', 'terse.json')) || {};
   const project = readJson(path.join(cwd || process.cwd(), '.claude', 'terse.json')) || {};
-  const merged = { level: 'normal', ...user, ...project };
-  const base = LEVELS[merged.level] || LEVELS.normal;
+
+  const requested = project.level ?? user.level ?? 'normal';
+  const level = LEVELS[requested] ? requested : 'normal';
+  const userNumsApply = (user.level ?? 'normal') === level;
 
   return {
     extensions: DEFAULT_EXTENSIONS,
     markdownExtensions: MARKDOWN_EXTENSIONS,
     allowPatterns: [],
-    ...base,
-    ...merged,
-    level: LEVELS[merged.level] ? merged.level : 'normal',
+    ...LEVELS[level],
+    ...(userNumsApply ? user : {}),
+    ...project,
+    level,
   };
+}
+
+function listOf(value, fallback) {
+  return Array.isArray(value) ? value : fallback;
 }
 
 function inScope(filePath, cfg) {
   if (!filePath || SKIP_PATH.test(filePath)) return false;
-  return cfg.extensions.includes(path.extname(filePath).toLowerCase());
+  return listOf(cfg.extensions, DEFAULT_EXTENSIONS).includes(path.extname(filePath).toLowerCase());
 }
 
 function inMarkdownScope(filePath, cfg) {
   if (!filePath || !cfg.enforceMarkdown || SKIP_PATH.test(filePath)) return false;
   if (MARKDOWN_EXEMPT.test(filePath)) return false;
-  return cfg.markdownExtensions.includes(path.extname(filePath).toLowerCase());
+  return listOf(cfg.markdownExtensions, MARKDOWN_EXTENSIONS).includes(path.extname(filePath).toLowerCase());
 }
 
 module.exports = { load, inScope, inMarkdownScope, LEVELS, DEFAULT_EXTENSIONS, MARKDOWN_EXTENSIONS, SKIP_PATH };

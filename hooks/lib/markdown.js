@@ -30,11 +30,14 @@ function classifyLines(lines) {
   let inFrontmatter = false;
   let pendingHeading = null;
 
+  const hasFrontmatter = (lines[0] ?? '').trim() === '---'
+    && lines.slice(1).some((l) => (l ?? '').trim() === '---');
+
   lines.forEach((raw, idx) => {
     const line = raw ?? '';
     const trimmed = line.trim();
 
-    if (idx === 0 && trimmed === '---') { inFrontmatter = true; return; }
+    if (idx === 0 && hasFrontmatter) { inFrontmatter = true; return; }
     if (inFrontmatter) {
       if (trimmed === '---') inFrontmatter = false;
       return;

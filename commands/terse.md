@@ -28,10 +28,13 @@ Note that `off` disables all three hooks - the style contract, the adaptive nudg
 
 ## `stats` - verbosity trend
 
-Run:
+`${CLAUDE_PLUGIN_ROOT}` is substituted only in hook commands, not in the Bash tool, so
+resolve the path first. Use Glob to find `hooks/lib/stats.js` under `~/.claude/plugins/`
+(the installed copy lives at `~/.claude/plugins/cache/hurleysk-marketplace/terse/<version>/`),
+then run it with Bash:
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/hooks/lib/stats.js"
+node "<resolved path>/hooks/lib/stats.js"
 ```
 
 It prints the word count of each of the last 10 assistant turns in the current session's transcript, plus the median and how many turns exceeded budget. Relay the numbers and one sentence on the trend. Do not pad this with advice.

@@ -2,27 +2,48 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const FILE = path.join(os.tmpdir(), 'terse-denials.json');
+const CANDIDATES = [
+  path.join(os.homedir(), '.claude', 'terse-denials.json'),
+  path.join(os.tmpdir(), 'terse-denials.json'),
+];
 const TTL_MS = 10 * 60 * 1000;
 const MAX_DENIALS = 2;
 
-function read(now) {
+function readFrom(file, now) {
   let data;
   try {
-    data = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+    data = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {
-    return {};
+    return null;
   }
+  if (!data || typeof data !== 'object') return null;
   for (const key of Object.keys(data)) {
     if (!data[key] || now - data[key].at > TTL_MS) delete data[key];
   }
   return data;
 }
 
+function read(now = Date.now()) {
+  for (const file of CANDIDATES) {
+    const data = readFrom(file, now);
+    if (data) return data;
+  }
+  return {};
+}
+
 function write(data) {
-  try {
-    fs.writeFileSync(FILE, JSON.stringify(data));
-  } catch {}
+  const payload = JSON.stringify(data);
+  for (const file of CANDIDATES) {
+    const tmp = `${file}.${process.pid}.tmp`;
+    try {
+      fs.writeFileSync(tmp, payload);
+      fs.renameSync(tmp, file);
+      return true;
+    } catch {
+      try { fs.unlinkSync(tmp); } catch {}
+    }
+  }
+  return false;
 }
 
 function key(sessionId, filePath) {
@@ -34,13 +55,14 @@ function recordDenial(sessionId, filePath, now = Date.now()) {
   const k = key(sessionId, filePath);
   const count = (data[k]?.count || 0) + 1;
   data[k] = { count, at: now };
-  write(data);
-  return count;
+  return { count, persisted: write(data) };
 }
 
 function clear(sessionId, filePath, now = Date.now()) {
   const data = read(now);
-  delete data[key(sessionId, filePath)];
+  const k = key(sessionId, filePath);
+  if (!(k in data)) return;
+  delete data[k];
   write(data);
 }
 
@@ -48,4 +70,4 @@ function exhausted(sessionId, filePath, now = Date.now()) {
   return (read(now)[key(sessionId, filePath)]?.count || 0) >= MAX_DENIALS;
 }
 
-module.exports = { recordDenial, clear, exhausted, read, FILE, MAX_DENIALS, TTL_MS };
+module.exports = { recordDenial, clear, exhausted, read, write, CANDIDATES, MAX_DENIALS, TTL_MS };

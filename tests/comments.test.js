@@ -58,20 +58,40 @@ test('flags ceremony labels', () => {
   assert.deepEqual(rules('a.js', '// helper function\nfunction pad(n) { return n; }'), ['ceremony']);
 });
 
-test('allows comments that explain why', () => {
-  const src = [
-    '// Dataverse returns empty string rather than null here, so the guard cannot use ??',
-    'const name = row.name || fallback;',
-  ].join('\n');
-  assert.deepEqual(rules('a.js', src), []);
-});
-
-test('allows because / workaround / spec / url / issue refs', () => {
-  assert.deepEqual(rules('a.js', '// counter++ because the API is 1-indexed\ncounter++;'), []);
-  assert.deepEqual(rules('a.js', '// workaround for the setup banner bug\nsetup();'), []);
+test('allows irreducible references and markers', () => {
   assert.deepEqual(rules('a.js', '// see https://example.com/setup\nsetup();'), []);
   assert.deepEqual(rules('a.js', '// blocked on ABC-123\nsetup();'), []);
   assert.deepEqual(rules('a.js', '// TODO: setup\nsetup();'), []);
+});
+
+test('naming an intent does not exempt a banner', () => {
+  assert.deepEqual(rules('a.js', '// ----- setup because of ordering -----\nsetup();'), ['section-banner']);
+});
+
+test('naming an intent does not exempt a comment from the density cap', () => {
+  const src = [
+    '// The upstream API is 1-indexed because the vendor never corrected it,',
+    '// so every offset in this module has to be shifted by one before the call.',
+    '// That is the reason this helper exists at all.',
+    'const a = 1;',
+    'const b = 2;',
+    'const c = 3;',
+    'const d = 4;',
+    'const e = 5;',
+    'const f = 6;',
+    'const g = 7;',
+  ].join('\n');
+  assert.ok(rules('a.js', src).includes('density'));
+});
+
+test('python docstrings are doc comments, denied only at brutal', () => {
+  const src = 'def f():\n    """\n    Returns the name.\n    """\n    return self.name';
+  assert.deepEqual(rules('a.py', src), []);
+  assert.ok(rules('a.py', src, brutal).includes('doc-comment'));
+});
+
+test('a trailing path or operator run is not a banner', () => {
+  assert.deepEqual(rules('a.js', '// TODO fix C:\\a\\b---\nrun();'), []);
 });
 
 test('allows tool directives and pragmas', () => {

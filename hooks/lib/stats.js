@@ -5,11 +5,25 @@ const { load } = require('./config');
 const { recentTurns } = require('./transcript');
 
 function slugFor(dir) {
-  return path.resolve(dir).replace(/[:\\/.]/g, '-');
+  return path.resolve(dir).replace(/[^a-zA-Z0-9]/g, '-');
+}
+
+function projectDirFor(dir) {
+  const root = path.join(os.homedir(), '.claude', 'projects');
+  const slug = slugFor(dir);
+  const exact = path.join(root, slug);
+  try {
+    if (fs.existsSync(exact)) return exact;
+    const prefix = slug.slice(0, 200);
+    const hit = fs.readdirSync(root).find((d) => d.startsWith(prefix));
+    return hit ? path.join(root, hit) : exact;
+  } catch {
+    return exact;
+  }
 }
 
 function newestTranscript(dir) {
-  const projectDir = path.join(os.homedir(), '.claude', 'projects', slugFor(dir));
+  const projectDir = projectDirFor(dir);
   let files;
   try {
     files = fs.readdirSync(projectDir).filter((f) => f.endsWith('.jsonl'));

@@ -36,13 +36,13 @@ test('Write with a noise comment is denied', () => {
   state.clear('w1', file);
 });
 
-test('Write with only why-comments passes silently', () => {
+test('Write with only a tool directive passes silently', () => {
   const dir = tmpdir();
   const res = callHook('pre-write.js', {
     session_id: 'w2', cwd: dir, tool_name: 'Write',
     tool_input: {
       file_path: path.join(dir, 'a.js'),
-      content: '// 1-indexed because the upstream API rejects 0\ncounter++;\n',
+      content: '// eslint-disable-next-line no-plusplus\ncounter++;\n',
     },
   });
   assert.equal(res, null);

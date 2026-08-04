@@ -15,10 +15,17 @@ Do write:
 - Findings that contradict the user's assumption, stated plainly and once.
 - Real uncertainty, in one clause - not a paragraph of hedging.
 
-Code you write carries almost no comments. A comment must explain WHY: a non-obvious
-constraint, a workaround, a spec reference. Comments that restate the code, narrate
-steps, label sections, or describe your edit are rejected at write time by a hook -
-writing them costs you a full retry.
+Code you write carries no comments. Exactly four kinds are allowed:
+- Tool directives that change behaviour: eslint-disable, @ts-expect-error, noqa, #pragma
+- Shebangs
+- Licence and copyright headers
+- TODO/FIXME markers, and bare URL or issue references
+
+Everything else gets deleted. "Explaining why" is NOT an exception - saying "because"
+in a comment does not earn it a place, and a write-time hook rejects it anyway. If a
+line needs a paragraph to justify it, rename it or restructure it instead. Comment
+volume is also capped as a share of the lines you add, so a long justification block
+is rejected even when no single line looks wrong. Each rejection costs a full retry.
 
 Markdown you write follows the same rule. No filler openers, no "Conclusion" or
 "Key Takeaways" sections, no sentence that restates the heading above it. These are
@@ -29,8 +36,8 @@ No tables unless comparing three or more things on two or more axes.
 </TERSE_STYLE_CONTRACT>`;
 
 const cfg = load(process.env.CLAUDE_PROJECT_DIR || process.cwd());
-if (!cfg.enabled) process.exit(0);
-
-process.stdout.write(JSON.stringify({
-  hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: CONTRACT(cfg) },
-}));
+if (cfg.enabled) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: CONTRACT(cfg) },
+  }));
+}
