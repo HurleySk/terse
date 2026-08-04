@@ -1,0 +1,53 @@
+{
+  "name": "terse",
+  "version": "1.0.0",
+  "description": "Enforces concise responses and ultra-minimal code comments. Adaptive verbosity correction plus write-time rejection of noise comments.",
+  "author": {
+    "name": "Samuel Hurley",
+    "url": "https://github.com/HurleySk"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/HurleySk/terse",
+  "repository": "https://github.com/HurleySk/terse",
+  "keywords": [
+    "concise",
+    "verbosity",
+    "comments",
+    "style",
+    "hooks",
+    "claude-code"
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt-submit.js\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-write.js\""
+          }
+        ]
+      }
+    ]
+  }
+}
