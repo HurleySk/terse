@@ -197,6 +197,44 @@ test('a run already flagged by another rule is not reported twice', () => {
   assert.deepEqual(rules('a.js', src), ['restates-code']);
 });
 
+test('editing one line inside a pre-existing long block does not blame the block', () => {
+  const lines = [
+    '// callers must hold the lock before entering',
+    '// the queue drains early otherwise',
+    '// and the retry path double-counts',
+    'enter();',
+  ];
+  const { violations } = analyze('a.js', [1], lines, cfg);
+  assert.deepEqual(violations.map((v) => v.rule), []);
+});
+
+test('only the lines the edit authored count toward the block budget', () => {
+  const lines = [
+    '// a pre-existing note that stays put',
+    '// freshly added narration line one',
+    '// freshly added narration line two',
+    '// freshly added narration line three',
+    'enter();',
+  ];
+  const { violations } = analyze('a.js', [1, 2, 3], lines, cfg);
+  assert.deepEqual(violations.map((v) => v.rule), ['too-long']);
+  assert.equal(violations[0].line, 2);
+  assert.match(violations[0].why, /^3-line comment block/);
+});
+
+test('a block stays over budget when only its last line trips another rule', () => {
+  const src = [
+    '// the scheduler hands us batches out of order',
+    '// so the cursor cannot be trusted across calls',
+    '// and we resort before persisting anything',
+    '// increment counter',
+    'counter++;',
+  ].join('\n');
+  const found = rules('a.js', src);
+  assert.ok(found.includes('too-long'), `expected too-long, got ${JSON.stringify(found)}`);
+  assert.ok(found.includes('restates-code'), `expected restates-code, got ${JSON.stringify(found)}`);
+});
+
 test('the line budget needs an added line inside the run', () => {
   const lines = [
     '// callers must hold the lock before entering',

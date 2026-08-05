@@ -162,6 +162,17 @@ function blocks(comments, cfg) {
   return runs.filter((r) => r.some((c) => c.text));
 }
 
+function authored(run, added) {
+  const segs = [];
+  let seg = [];
+  for (const c of run) {
+    if (added.has(c.index)) seg.push(c);
+    else if (seg.length) { segs.push(seg); seg = []; }
+  }
+  if (seg.length) segs.push(seg);
+  return segs.filter((s) => s.some((c) => c.text));
+}
+
 function classify(comment, code, cfg) {
   const text = comment.text;
   if (!text) return null;
@@ -203,15 +214,18 @@ function analyze(filePath, addedLines, allLines, cfg) {
   if (cap !== Infinity) {
     const flagged = new Set(violations.map((v) => v.line));
     for (const run of blocks(comments, cfg)) {
-      if (run.length <= cap || !run.some((c) => added.has(c.index))) continue;
-      if (cfg.allowDocComments && run.every((c) => c.doc)) continue;
-      if (run.some((c) => flagged.has(c.index + 1))) continue;
-      violations.push({
-        line: run[0].index + 1,
-        raw: run[0].raw,
-        rule: 'too-long',
-        why: `${run.length}-line comment block; budget is ${cap} line${cap === 1 ? '' : 's'}`,
-      });
+      for (const seg of authored(run, added)) {
+        if (seg.length <= cap) continue;
+        if (cfg.allowDocComments && seg.every((c) => c.doc)) continue;
+        if (flagged.has(seg[0].index + 1)) continue;
+        if (seg.filter((c) => c.text).every((c) => flagged.has(c.index + 1))) continue;
+        violations.push({
+          line: seg[0].index + 1,
+          raw: seg[0].raw,
+          rule: 'too-long',
+          why: `${seg.length}-line comment block; budget is ${cap} line${cap === 1 ? '' : 's'}`,
+        });
+      }
     }
     violations.sort((a, b) => a.line - b.line);
   }

@@ -91,7 +91,7 @@ Only comments that do something, or that carry a reference the code cannot:
 
 **"Explaining why" is deliberately not on that list.** An earlier version allowed any comment containing *why*, *because*, *workaround*, *caveat*, and friends. That is a keyword match, not a semantic one: writing "because" bought a comment unlimited exemption, including from the density cap. Since almost every comment gestures at intent, it exempted almost everything and made the plugin trivial to defeat by accident. If a line needs a paragraph to justify it, rename it or restructure it.
 
-Two rules catch the remaining case - a block of genuine-sounding prose where no single line matches a rule. `too-long` caps one contiguous comment block at 2 lines under `normal` and 1 under `brutal`. Allow-listed lines split a run rather than exempting it, so a licence header stays legal but a paragraph wrapped around an `eslint-disable` does not. Doc blocks are exempt wherever doc comments are allowed at all. `density` then counts every comment you add, allow-listed or not, against the lines you add.
+Two rules catch the remaining case - a block of genuine-sounding prose where no single line matches a rule. `too-long` caps one contiguous comment block at 2 lines under `normal` and 1 under `brutal`. Only the lines an edit actually authored are counted, so touching one line of an old block is never blamed for the whole block - the same rule the rest of the plugin follows. Allow-listed lines split a run rather than exempting it, so a licence header stays legal but a paragraph wrapped around an `eslint-disable` does not. Doc blocks are exempt wherever doc comments are allowed at all. `density` then counts every comment you add, allow-listed or not, against the lines you add.
 
 Two design choices keep this from becoming an obstacle:
 
@@ -119,7 +119,7 @@ The background scan is the counterweight to that narrowness. It reads whole file
 }
 ```
 
-`allowPatterns` entries are case-insensitive regexes tested against the raw comment. `asyncScan: false` turns off the background scan while leaving write-time enforcement in place. Files outside `extensions` are ignored entirely, as are paths under `node_modules/`, `vendor/`, `dist/`, `build/`, `bin/`, `obj/`, and anything matching `.min.`, `.generated.`, or `.designer.`.
+`allowPatterns` entries are case-insensitive regexes tested against the raw comment. `asyncScan: false` turns off the background scan while leaving write-time enforcement in place. `maxCommentLines: 0` disables the block-length rule rather than banning comments outright. Files outside `extensions` are ignored entirely, as are paths under `node_modules/`, `vendor/`, `dist/`, `build/`, `bin/`, `obj/`, and anything matching `.min.`, `.generated.`, or `.designer.`.
 
 ## Scope
 

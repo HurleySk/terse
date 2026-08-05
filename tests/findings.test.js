@@ -70,3 +70,20 @@ test('a corrupt entry is discarded, not fatal', () => {
 test('draining an unknown session is empty, not an error', () => {
   assert.deepEqual(findings.drain('terse-never-used'), []);
 });
+
+test('a fallback-root entry is cleared once the primary root works again', () => {
+  const s = session();
+  const name = findings.entryName('C:/proj/a.js');
+  const fallback = findings.sessionDir(findings.ROOTS[1], s);
+  fs.mkdirSync(fallback, { recursive: true });
+  fs.writeFileSync(
+    path.join(fallback, name),
+    JSON.stringify({ file: path.resolve('C:/proj/a.js'), at: Date.now(), violations: [violation(1)] }),
+  );
+
+  findings.record(s, 'C:/proj/a.js', [violation(9)]);
+
+  const drained = findings.drain(s);
+  assert.equal(drained.length, 1, 'the same file must not be reported from two roots');
+  assert.deepEqual(drained[0].violations, [violation(9)]);
+});

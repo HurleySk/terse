@@ -43,10 +43,13 @@ function record(sessionId, filePath, violations, now = Date.now()) {
   }
 
   const payload = JSON.stringify({ file: path.resolve(filePath), at: now, violations });
+  let written = false;
   for (const root of ROOTS) {
-    if (writeAtomic(path.join(sessionDir(root, sessionId), name), payload)) return true;
+    const file = path.join(sessionDir(root, sessionId), name);
+    if (written) remove(file);
+    else written = writeAtomic(file, payload);
   }
-  return false;
+  return written;
 }
 
 function drainDir(dir, now, out) {
@@ -60,11 +63,19 @@ function drainDir(dir, now, out) {
   for (const name of names) {
     if (!name.endsWith('.json')) continue;
     const file = path.join(dir, name);
+    const claim = `${file}.${process.pid}.claim`;
+    let source = claim;
+    try {
+      fs.renameSync(file, claim);
+    } catch {
+      source = file;
+    }
+
     let entry = null;
     try {
-      entry = JSON.parse(fs.readFileSync(file, 'utf8'));
+      entry = JSON.parse(fs.readFileSync(source, 'utf8'));
     } catch {}
-    remove(file);
+    remove(source);
     if (entry && entry.file && Array.isArray(entry.violations) && now - entry.at <= TTL_MS) {
       out.push(entry);
     }
