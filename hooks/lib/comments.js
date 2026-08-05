@@ -143,11 +143,29 @@ function restates(comment, code) {
   return hits > 0 && hits / cw.length >= 0.5;
 }
 
+function exempt(comment, cfg) {
+  if (ALLOW.some((re) => re.test(comment.raw))) return true;
+  return (cfg.allowPatterns || []).some((p) => new RegExp(p, 'i').test(comment.raw));
+}
+
+function blocks(comments, cfg) {
+  const runs = [];
+  let run = [];
+  const flush = () => { if (run.length) runs.push(run); run = []; };
+
+  for (const c of comments) {
+    if (c.trailing || exempt(c, cfg)) { flush(); continue; }
+    if (run.length && c.index !== run[run.length - 1].index + 1) flush();
+    run.push(c);
+  }
+  flush();
+  return runs.filter((r) => r.some((c) => c.text));
+}
+
 function classify(comment, code, cfg) {
   const text = comment.text;
   if (!text) return null;
-  if (ALLOW.some((re) => re.test(comment.raw))) return null;
-  if ((cfg.allowPatterns || []).some((p) => new RegExp(p, 'i').test(comment.raw))) return null;
+  if (exempt(comment, cfg)) return null;
   if (comment.doc) return cfg.allowDocComments ? null : 'doc-comment';
   if (BANNER.test(comment.raw) || (BANNER.test(text) && text.replace(/[-=*_~#+─-╿\s]/g, '').length < 30)) return 'section-banner';
   if (STEP.test(text)) return 'step-narration';
@@ -164,6 +182,7 @@ const EXPLAIN = {
   changelog: 'describes the edit, not the code',
   ceremony: 'labels an obvious construct',
   'doc-comment': 'doc block adds nothing beyond the signature',
+  'too-long': 'comment block runs past the line budget',
   density: 'comment density over budget',
 };
 
@@ -180,6 +199,23 @@ function analyze(filePath, addedLines, allLines, cfg) {
     if (rule) violations.push({ line: c.index + 1, raw: c.raw, rule, why: EXPLAIN[rule] });
   }
 
+  const cap = Number(cfg.maxCommentLines) > 0 ? Number(cfg.maxCommentLines) : Infinity;
+  if (cap !== Infinity) {
+    const flagged = new Set(violations.map((v) => v.line));
+    for (const run of blocks(comments, cfg)) {
+      if (run.length <= cap || !run.some((c) => added.has(c.index))) continue;
+      if (cfg.allowDocComments && run.every((c) => c.doc)) continue;
+      if (run.some((c) => flagged.has(c.index + 1))) continue;
+      violations.push({
+        line: run[0].index + 1,
+        raw: run[0].raw,
+        rule: 'too-long',
+        why: `${run.length}-line comment block; budget is ${cap} line${cap === 1 ? '' : 's'}`,
+      });
+    }
+    violations.sort((a, b) => a.line - b.line);
+  }
+
   const addedNonBlank = addedLines.filter((i) => (allLines[i] ?? '').trim()).length;
   const density = addedNonBlank ? scoped.length / addedNonBlank : 0;
   if (addedNonBlank >= 10 && density > cfg.commentDensity && !violations.length) {
@@ -194,4 +230,4 @@ function analyze(filePath, addedLines, allLines, cfg) {
   return { violations, density };
 }
 
-module.exports = { analyze, classify, extract, restates, tokenize, syntaxFor, splitCode, stripMarkers, EXPLAIN, ALLOW };
+module.exports = { analyze, classify, blocks, extract, restates, tokenize, syntaxFor, splitCode, stripMarkers, EXPLAIN, ALLOW };

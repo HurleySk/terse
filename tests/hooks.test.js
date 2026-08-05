@@ -24,6 +24,13 @@ function decision(res) {
   return res?.hookSpecificOutput?.permissionDecision || null;
 }
 
+function runScan(file, sessionId, cwd) {
+  execFileSync(process.execPath, [path.join(HOOKS, 'scan.js'), file, sessionId, cwd], { encoding: 'utf8' });
+}
+
+const user = { type: 'user', isSidechain: false, message: { content: [{ type: 'text', text: 'hi' }] } };
+const bot = (text) => ({ type: 'assistant', isSidechain: false, message: { content: [{ type: 'text', text }] } });
+
 test('Write with a noise comment is denied', () => {
   const dir = tmpdir();
   const file = path.join(dir, 'a.js');
@@ -122,8 +129,6 @@ test('malformed hook input exits cleanly', () => {
 test('prompt-submit nudges only when the last turn was over budget', () => {
   const dir = tmpdir();
   const file = path.join(dir, 't.jsonl');
-  const user = { type: 'user', isSidechain: false, message: { content: [{ type: 'text', text: 'hi' }] } };
-  const bot = (text) => ({ type: 'assistant', isSidechain: false, message: { content: [{ type: 'text', text }] } });
 
   fs.writeFileSync(file, [user, bot('short answer')].map((e) => JSON.stringify(e)).join('\n'));
   assert.equal(callHook('prompt-submit.js', { cwd: dir, transcript_path: file }), null);
@@ -131,6 +136,146 @@ test('prompt-submit nudges only when the last turn was over budget', () => {
   fs.writeFileSync(file, [user, bot('word '.repeat(400))].map((e) => JSON.stringify(e)).join('\n'));
   const res = callHook('prompt-submit.js', { cwd: dir, transcript_path: file });
   assert.match(res.hookSpecificOutput.additionalContext, /400 words of prose against a 250-word budget/);
+});
+
+test('prompt-submit escalates when turns run over back to back', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 't.jsonl');
+  const turns = (counts) => {
+    const rows = [];
+    for (const n of counts) {
+      rows.push(user);
+      rows.push(bot('word '.repeat(n)));
+    }
+    rows.push(user);
+    fs.writeFileSync(file, rows.map((e) => JSON.stringify(e)).join('\n'));
+  };
+  const context = () => callHook('prompt-submit.js', { cwd: dir, transcript_path: file })
+    .hookSpecificOutput.additionalContext;
+
+  turns([10, 400]);
+  assert.doesNotMatch(context(), /turn(s)? (in a row|running)/);
+
+  turns([10, 400, 400]);
+  assert.match(context(), /Second turn running/);
+
+  turns([10, 300, 400, 500]);
+  const third = context();
+  assert.match(third, /3 turns in a row, averaging 400 words/);
+  assert.match(third, /Stop writing prose nobody asked for/);
+});
+
+test('a project wordBudget overrides the level preset end to end', () => {
+  const dir = tmpdir();
+  fs.mkdirSync(path.join(dir, '.claude'));
+  fs.writeFileSync(path.join(dir, '.claude', 'terse.json'), JSON.stringify({ level: 'normal', wordBudget: 80 }));
+
+  const file = path.join(dir, 't.jsonl');
+  fs.writeFileSync(file, [user, bot('word '.repeat(100))].map((e) => JSON.stringify(e)).join('\n'));
+
+  const res = callHook('prompt-submit.js', { cwd: dir, transcript_path: file });
+  assert.match(res.hookSpecificOutput.additionalContext, /100 words of prose against a 80-word budget/);
+});
+
+test('scan reports comments the agent never added', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'legacy.js');
+  fs.writeFileSync(file, '// imports\nconst fs = require("fs");\n// increment counter\ncounter++;\n');
+
+  runScan(file, 's-scan1', dir);
+  const res = callHook('prompt-submit.js', { session_id: 's-scan1', cwd: dir });
+  const ctx = res.hookSpecificOutput.additionalContext;
+
+  assert.match(ctx, /1 file you wrote still carries removable comments/);
+  assert.match(ctx, /legacy\.js/);
+  assert.match(ctx, /L1 {2}\/\/ imports/);
+  assert.match(ctx, /L3 {2}\/\/ increment counter/);
+  assert.match(ctx, /advisory - nothing was blocked/);
+});
+
+test('findings are drained, so a report is delivered once', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'legacy.js');
+  fs.writeFileSync(file, '// imports\nconst fs = require("fs");\n');
+
+  runScan(file, 's-scan2', dir);
+  assert.ok(callHook('prompt-submit.js', { session_id: 's-scan2', cwd: dir }));
+  assert.equal(callHook('prompt-submit.js', { session_id: 's-scan2', cwd: dir }), null);
+});
+
+test('a clean file leaves nothing to report', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'clean.js');
+  fs.writeFileSync(file, 'const fs = require("fs");\ncounter++;\n');
+
+  runScan(file, 's-scan3', dir);
+  assert.equal(callHook('prompt-submit.js', { session_id: 's-scan3', cwd: dir }), null);
+});
+
+test('a later clean scan clears an earlier report', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'a.js');
+
+  fs.writeFileSync(file, '// imports\nconst fs = require("fs");\n');
+  runScan(file, 's-scan4', dir);
+
+  fs.writeFileSync(file, 'const fs = require("fs");\n');
+  runScan(file, 's-scan4', dir);
+
+  assert.equal(callHook('prompt-submit.js', { session_id: 's-scan4', cwd: dir }), null);
+});
+
+test('level off silences the scanner', () => {
+  const dir = tmpdir();
+  fs.mkdirSync(path.join(dir, '.claude'));
+  fs.writeFileSync(path.join(dir, '.claude', 'terse.json'), JSON.stringify({ level: 'off' }));
+
+  const file = path.join(dir, 'a.js');
+  fs.writeFileSync(file, '// imports\nconst fs = require("fs");\n');
+
+  runScan(file, 's-scan5', dir);
+  assert.equal(callHook('prompt-submit.js', { session_id: 's-scan5', cwd: dir }), null);
+});
+
+test('the budget correction and the scan report travel together', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'legacy.js');
+  fs.writeFileSync(file, '// imports\nconst fs = require("fs");\n');
+  runScan(file, 's-scan6', dir);
+
+  const transcript = path.join(dir, 't.jsonl');
+  fs.writeFileSync(transcript, [user, bot('word '.repeat(400))].map((e) => JSON.stringify(e)).join('\n'));
+
+  const ctx = callHook('prompt-submit.js', { session_id: 's-scan6', cwd: dir, transcript_path: transcript })
+    .hookSpecificOutput.additionalContext;
+  assert.match(ctx, /400 words of prose/);
+  assert.match(ctx, /removable comments/);
+});
+
+test('post-write stays silent and never blocks', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'a.js');
+  fs.writeFileSync(file, '// imports\nconst fs = require("fs");\n');
+
+  const out = callHook('post-write.js', {
+    session_id: 's-post1', cwd: dir, tool_name: 'Write',
+    tool_input: { file_path: file },
+  });
+  assert.equal(out, null);
+});
+
+test('post-write ignores out-of-scope files', () => {
+  const dir = tmpdir();
+  const out = callHook('post-write.js', {
+    session_id: 's-post2', cwd: dir, tool_name: 'Write',
+    tool_input: { file_path: path.join(dir, 'data.json') },
+  });
+  assert.equal(out, null);
+});
+
+test('scan survives a deleted file and a malformed invocation', () => {
+  assert.doesNotThrow(() => runScan(path.join(tmpdir(), 'gone.js'), 's-scan7', tmpdir()));
+  assert.doesNotThrow(() => execFileSync(process.execPath, [path.join(HOOKS, 'scan.js')], { encoding: 'utf8' }));
 });
 
 test('session-start emits the style contract', () => {

@@ -38,10 +38,18 @@ jobs:
 
           echo "plugin_name=$PLUGIN_NAME" >> "$GITHUB_OUTPUT"
 
-          if echo "$COMMIT_MSG" | grep -q '\[release\]'; then
+          if echo "$COMMIT_MSG" | grep -qE '\[release(:(minor|major))?\]'; then
             echo "release=true" >> "$GITHUB_OUTPUT"
             IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-            NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+
+            if echo "$COMMIT_MSG" | grep -q '\[release:major\]'; then
+              NEW_VERSION="$((MAJOR + 1)).0.0"
+            elif echo "$COMMIT_MSG" | grep -q '\[release:minor\]'; then
+              NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+            else
+              NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+            fi
+
             echo "Release requested - bumping: $CURRENT -> $NEW_VERSION"
             jq --arg v "$NEW_VERSION" '.version = $v' .claude-plugin/plugin.json > tmp.json
             mv tmp.json .claude-plugin/plugin.json
@@ -77,9 +85,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch to marketplace
+        env:
+          MARKETPLACE_PAT: ${{ secrets.MARKETPLACE_PAT }}
         run: |
-          curl -X POST \
+          if [ -z "$MARKETPLACE_PAT" ]; then
+            echo "MARKETPLACE_PAT is not set - the marketplace will not learn about this release." >&2
+            exit 1
+          fi
+
+          curl -X POST --fail-with-body -sS \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.MARKETPLACE_PAT }}" \
+            -H "Authorization: Bearer $MARKETPLACE_PAT" \
             https://api.github.com/repos/HurleySk/hurleysk-marketplace/dispatches \
             -d "{\"event_type\":\"plugin-version-update\",\"client_payload\":{\"plugin_name\":\"${{ needs.sync.outputs.plugin_name }}\",\"version\":\"${{ needs.sync.outputs.version }}\"}}"
+
+          echo "Dispatched ${{ needs.sync.outputs.plugin_name }} v${{ needs.sync.outputs.version }} to the marketplace."

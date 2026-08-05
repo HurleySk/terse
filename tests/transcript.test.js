@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { lastTurn, recentTurns, countWords } = require('../hooks/lib/transcript');
+const { lastTurn, recentTurns, overBudget, countWords } = require('../hooks/lib/transcript');
 
 function fixture(entries) {
   const file = path.join(os.tmpdir(), `terse-fx-${Math.floor(process.hrtime()[1])}.jsonl`);
@@ -100,4 +100,23 @@ test('no assistant reply yet yields null', () => {
 test('recentTurns returns one count per turn', () => {
   const f = fixture([user('a'), bot('one'), user('b'), bot('one two'), user('c'), bot('one two three')]);
   assert.deepEqual(recentTurns(f, 10), [1, 2, 3]);
+});
+
+test('overBudget counts only the streak ending at the latest turn', () => {
+  const f = fixture([
+    user('a'), bot('one two three four five'),
+    user('b'), bot('one'),
+    user('c'), bot('one two three'),
+    user('d'), bot('one two three four'),
+  ]);
+  assert.deepEqual(overBudget(f, 2), { streak: 2, mean: 4, turns: [5, 1, 3, 4] });
+});
+
+test('overBudget is zero when the latest turn is within budget', () => {
+  const f = fixture([user('a'), bot('one two three four five'), user('b'), bot('one')]);
+  assert.equal(overBudget(f, 2).streak, 0);
+});
+
+test('overBudget survives a missing transcript', () => {
+  assert.deepEqual(overBudget(path.join(os.tmpdir(), 'terse-none.jsonl'), 100), { streak: 0, mean: 0, turns: [] });
 });

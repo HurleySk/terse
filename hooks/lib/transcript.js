@@ -111,4 +111,13 @@ function recentTurns(file, limit = 10) {
   return turns.slice(-limit);
 }
 
-module.exports = { lastTurn, recentTurns, countWords, textOf, isRealUserTurn, BOOKKEEPING };
+function overBudget(file, budget, limit = 10) {
+  const turns = recentTurns(file, limit);
+  let streak = 0;
+  for (let i = turns.length - 1; i >= 0 && turns[i] > budget; i--) streak++;
+  const window = turns.slice(turns.length - streak);
+  const mean = window.length ? Math.round(window.reduce((a, b) => a + b, 0) / window.length) : 0;
+  return { streak, mean, turns };
+}
+
+module.exports = { lastTurn, recentTurns, overBudget, countWords, textOf, isRealUserTurn, BOOKKEEPING };

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { load } = require('./config');
-const { recentTurns } = require('./transcript');
+const { recentTurns, overBudget } = require('./transcript');
 
 function slugFor(dir) {
   return path.resolve(dir).replace(/[^a-zA-Z0-9]/g, '-');
@@ -56,7 +56,8 @@ const sorted = [...turns].sort((a, b) => a - b);
 const median = sorted[Math.floor(sorted.length / 2)];
 const budget = cfg.wordBudget || 250;
 const over = turns.filter((w) => w > budget).length;
+const { streak } = overBudget(file, budget);
 
 console.log(`level: ${cfg.level}   budget: ${budget} words`);
 console.log(`last ${turns.length} turns: ${turns.join(', ')}`);
-console.log(`median: ${median}   over budget: ${over}/${turns.length}`);
+console.log(`median: ${median}   over budget: ${over}/${turns.length}   current streak: ${streak}`);

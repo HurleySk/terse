@@ -4,8 +4,8 @@ const os = require('os');
 
 const LEVELS = {
   off: { enabled: false },
-  normal: { enabled: true, wordBudget: 250, commentDensity: 0.08, allowDocComments: true, enforceMarkdown: true },
-  brutal: { enabled: true, wordBudget: 120, commentDensity: 0.03, allowDocComments: false, enforceMarkdown: true },
+  normal: { enabled: true, wordBudget: 250, commentDensity: 0.08, maxCommentLines: 2, allowDocComments: true, enforceMarkdown: true, asyncScan: true },
+  brutal: { enabled: true, wordBudget: 120, commentDensity: 0.03, maxCommentLines: 1, allowDocComments: false, enforceMarkdown: true, asyncScan: true },
 };
 
 const MARKDOWN_EXTENSIONS = ['.md', '.mdx', '.markdown'];

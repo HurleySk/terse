@@ -4,7 +4,7 @@ const { analyze, classify, extract, restates, splitCode } = require('../hooks/li
 const { load } = require('../hooks/lib/config');
 
 const cfg = { ...load('/nonexistent'), level: 'normal', enabled: true, allowDocComments: true, commentDensity: 0.08, allowPatterns: [] };
-const brutal = { ...cfg, allowDocComments: false, commentDensity: 0.03 };
+const brutal = { ...cfg, allowDocComments: false, commentDensity: 0.03, maxCommentLines: 1 };
 
 function run(file, src, conf = cfg) {
   const lines = src.split('\n');
@@ -68,13 +68,29 @@ test('naming an intent does not exempt a banner', () => {
   assert.deepEqual(rules('a.js', '// ----- setup because of ordering -----\nsetup();'), ['section-banner']);
 });
 
-test('naming an intent does not exempt a comment from the density cap', () => {
+test('naming an intent does not exempt a long justification block', () => {
   const src = [
     '// The upstream API is 1-indexed because the vendor never corrected it,',
     '// so every offset in this module has to be shifted by one before the call.',
     '// That is the reason this helper exists at all.',
     'const a = 1;',
     'const b = 2;',
+    'const c = 3;',
+    'const d = 4;',
+    'const e = 5;',
+    'const f = 6;',
+    'const g = 7;',
+  ].join('\n');
+  assert.ok(rules('a.js', src).includes('too-long'));
+});
+
+test('scattered single-line comments still trip the density cap', () => {
+  const src = [
+    '// the vendor never corrected this',
+    'const a = 1;',
+    '// offsets shift by one upstream',
+    'const b = 2;',
+    '// the helper exists only for that',
     'const c = 3;',
     'const d = 4;',
     'const e = 5;',
@@ -123,6 +139,73 @@ test('density fires only when nothing else did and the sample is big enough', ()
 
   const small = '// notes on a\nconst a = 1;\nconst b = 2;';
   assert.deepEqual(rules('a.js', small), []);
+});
+
+test('a comment block over the line budget is flagged at its first line', () => {
+  const src = [
+    '// callers must hold the lock before entering',
+    '// otherwise the queue drains out of order',
+    '// and the retry path double-charges',
+    'enter();',
+  ].join('\n');
+  const v = run('a.js', src).violations;
+  assert.deepEqual(v.map((x) => x.rule), ['too-long']);
+  assert.equal(v[0].line, 1);
+  assert.match(v[0].why, /3-line comment block; budget is 2 lines/);
+});
+
+test('the line budget tightens from two to one at brutal', () => {
+  const src = '// callers must hold the lock\n// before entering the queue\nenter();';
+  assert.deepEqual(rules('a.js', src), []);
+  assert.deepEqual(rules('a.js', src, brutal), ['too-long']);
+  assert.match(run('a.js', src, brutal).violations[0].why, /budget is 1 line\b/);
+});
+
+test('a block comment is measured by its physical lines', () => {
+  const src = '/*\n * callers must hold the lock\n * before entering the queue\n */\nenter();';
+  assert.deepEqual(rules('a.js', src), ['too-long']);
+});
+
+test('a multi-line licence header is not a too-long block', () => {
+  const src = [
+    '// Copyright 2026 Samuel Hurley',
+    '// SPDX-License-Identifier: MIT',
+    '// All rights reserved',
+    'const x = 1;',
+  ].join('\n');
+  assert.deepEqual(rules('a.js', src), []);
+});
+
+test('an allowed line splits a run rather than exempting it', () => {
+  const src = [
+    '// callers must hold the lock',
+    '// eslint-disable-next-line no-console',
+    '// otherwise the queue drains early',
+    'enter();',
+  ].join('\n');
+  assert.deepEqual(rules('a.js', src), []);
+});
+
+test('doc blocks escape the line budget only while doc comments are allowed', () => {
+  const src = '/**\n * Pads a number to the given width.\n * Callers pass the width in columns.\n */\nfunction pad(n) { return n; }';
+  assert.deepEqual(rules('a.js', src), []);
+  assert.ok(rules('a.js', src, brutal).every((r) => r === 'doc-comment'));
+});
+
+test('a run already flagged by another rule is not reported twice', () => {
+  const src = '// increment counter\n// and then some more narration here\n// plus a third line of it\ncounter++;';
+  assert.deepEqual(rules('a.js', src), ['restates-code']);
+});
+
+test('the line budget needs an added line inside the run', () => {
+  const lines = [
+    '// callers must hold the lock before entering',
+    '// otherwise the queue drains out of order',
+    '// and the retry path double-charges',
+    'enter();',
+    'const fresh = 1;',
+  ];
+  assert.deepEqual(analyze('a.js', [4], lines, cfg).violations, []);
 });
 
 test('only added lines are evaluated', () => {

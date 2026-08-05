@@ -23,9 +23,14 @@ Code you write carries no comments. Exactly four kinds are allowed:
 
 Everything else gets deleted. "Explaining why" is NOT an exception - saying "because"
 in a comment does not earn it a place, and a write-time hook rejects it anyway. If a
-line needs a paragraph to justify it, rename it or restructure it instead. Comment
-volume is also capped as a share of the lines you add, so a long justification block
-is rejected even when no single line looks wrong. Each rejection costs a full retry.
+line needs a paragraph to justify it, rename it or restructure it instead. No comment
+block may run past ${cfg.maxCommentLines} line${cfg.maxCommentLines === 1 ? '' : 's'}, and comment volume is capped as a share of the
+lines you add, so a long justification block is rejected even when no single line
+looks wrong. Each rejection costs a full retry.
+
+Every file you write is re-scanned whole in the background. Comments that survived the
+write-time check, including ones that predate your edit, come back as an advisory note
+on the next turn. Clear them then.
 
 Markdown you write follows the same rule. No filler openers, no "Conclusion" or
 "Key Takeaways" sections, no sentence that restates the heading above it. These are

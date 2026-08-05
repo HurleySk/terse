@@ -37,7 +37,8 @@ const GUIDANCE = {
     'Delete these comments, then retry. Only four kinds survive: tool directives that',
     'change behaviour (eslint-disable, @ts-expect-error, noqa, #pragma), shebangs, licence',
     'headers, and TODO/FIXME markers or bare URL and issue references. Explaining intent',
-    'is not an exception - if a line needs a paragraph, rename it or restructure it.',
+    'is not an exception - if a line needs a paragraph, rename it or restructure it, and',
+    'no comment block may run past the line budget for this level.',
   ],
   markdown: [
     'Cut these, then retry. Delete filler openers, sections that only recap, sentences that',
