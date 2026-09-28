@@ -122,6 +122,11 @@ test('allows shebangs and licence headers', () => {
   assert.deepEqual(rules('a.js', '// Copyright 2026 Samuel Hurley\n// SPDX-License-Identifier: MIT\nconst x = 1;'), []);
 });
 
+test('a shebang does not count toward comment density', () => {
+  const src = ['#!/usr/bin/env bash', ...Array.from({ length: 11 }, (_, i) => `echo ${i}`)].join('\n');
+  assert.deepEqual(rules('a.sh', src, brutal), []);
+});
+
 test('doc comments allowed at normal, denied at brutal', () => {
   const src = '/**\n * Pads a number.\n */\nfunction pad(n) { return n; }';
   assert.deepEqual(rules('a.js', src), []);

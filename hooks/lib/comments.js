@@ -231,11 +231,12 @@ function analyze(filePath, addedLines, allLines, cfg) {
   }
 
   const addedNonBlank = addedLines.filter((i) => (allLines[i] ?? '').trim()).length;
-  const density = addedNonBlank ? scoped.length / addedNonBlank : 0;
+  const counted = scoped.filter((c) => !exempt(c, cfg));
+  const density = addedNonBlank ? counted.length / addedNonBlank : 0;
   if (addedNonBlank >= 10 && density > cfg.commentDensity && !violations.length) {
     violations.push({
-      line: scoped.length ? scoped[0].index + 1 : 1,
-      raw: `${scoped.length} comments across ${addedNonBlank} added lines`,
+      line: counted.length ? counted[0].index + 1 : 1,
+      raw: `${counted.length} comments across ${addedNonBlank} added lines`,
       rule: 'density',
       why: `${Math.round(density * 100)}% of added lines are comments; budget is ${Math.round(cfg.commentDensity * 100)}%`,
     });
